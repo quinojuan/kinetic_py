@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Orden{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <h1>Crear Nueva Orden</h1>
+    <form method="POST" action="/ordenes">
+        <div class="form-group">
+            <label for="id_medico_solicitante">Médico Solicitante</label>
+            <select class="form-control" id="id_medico_solicitante" name="id_medico_solicitante" required>
+                <!-- Opciones dinámicas de médicos -->
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="id_diagnostico_cie10">Diagnóstico CIE10</label>
+            <select class="form-control" id="id_diagnostico_cie10" name="id_diagnostico_cie10" required>
+                <!-- Opciones dinámicas de diagnósticos -->
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="aplica_obra_social">¿Aplica Obra Social?</label>
+            <select class="form-control" id="aplica_obra_social" name="aplica_obra_social" required>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="cantidad_sesiones">Cantidad de Sesiones</label>
+            <input type="number" class="form-control" id="cantidad_sesiones" name="cantidad_sesiones" min="1" required>
+        </div>
+        <div class="form-group">
+            <label for="fecha_lesion">Fecha de Lesión</label>
+            <input type="date" class="form-control" id="fecha_lesion" name="fecha_lesion" required>
+        </div>
+        <div class="form-group">
+            <label for="fecha_cirugia">Fecha de Cirugía</label>
+            <input type="date" class="form-control" id="fecha_cirugia" name="fecha_cirugia" required>
+        </div>
+        <div class="form-group">
+            <label for="tipo_de_lesion">Tipo de Lesión</label>
+            <select class="form-control" id="tipo_de_lesion" name="tipo_de_lesion" required>
+                <option value="crónica">Crónica</option>
+                <option value="aguda">Aguda</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="trajo_orden">¿Trajo Orden?</label>
+            <select class="form-control" id="trajo_orden" name="trajo_orden" required>
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Crear Orden</button>
+    </form>
+</div>
+
+<script>
+    document.getElementById('fecha_cirugia').addEventListener('change', function () {
+        const fechaLesion = new Date(document.getElementById('fecha_lesion').value);
+        const fechaCirugia = new Date(this.value);
+        if (fechaCirugia < fechaLesion) {
+            alert('La fecha de cirugía no puede ser menor a la fecha de lesión.');
+            this.value = '';
+        }
+    });
+</script>
+{% endblock %}
