@@ -9,13 +9,14 @@
         <div class="form-group">
             <label for="id_medico_solicitante">Médico Solicitante</label>
             <select class="form-control" id="id_medico_solicitante" name="id_medico_solicitante" required>
-                <!-- Opciones dinámicas de médicos -->
+                <option value="" disabled selected>Cargando médicos...</option>
             </select>
         </div>
         <div class="form-group">
             <label for="id_diagnostico_cie10">Diagnóstico CIE10</label>
-            <select class="form-control" id="id_diagnostico_cie10" name="id_diagnostico_cie10" required>
-                <!-- Opciones dinámicas de diagnósticos -->
+            <input type="text" class="form-control" id="buscar_diagnostico" placeholder="Buscar diagnóstico..." autocomplete="off">
+            <select class="form-control mt-2" id="id_diagnostico_cie10" name="id_diagnostico_cie10" required>
+                <option value="" disabled selected>Seleccione un diagnóstico</option>
             </select>
         </div>
         <div class="form-group">
@@ -56,6 +57,76 @@
 </div>
 
 <script>
+    // Función para cargar médicos en el select
+    async function cargarMedicos() {
+        try {
+            const response = await fetch('/catalogos/medicos');
+            if (!response.ok) {
+                throw new Error('Error al cargar los médicos');
+            }
+            const medicos = await response.json();
+            const selectMedicos = document.getElementById('id_medico_solicitante');
+            selectMedicos.innerHTML = ''; // Limpiar opciones previas
+
+            medicos.forEach(medico => {
+                const option = document.createElement('option');
+                option.value = medico.id; // Asume que cada médico tiene un campo 'id'
+                option.textContent = `${medico.apellido} ${medico.nombre}`; // Asume que cada médico tiene un campo 'nombre'
+                selectMedicos.appendChild(option);
+            });
+        } catch (error) {
+            console.error(error);
+            alert('No se pudieron cargar los médicos. Intente nuevamente.');
+        }
+    }
+
+    // Función para buscar diagnósticos dinámicamente
+    async function buscarDiagnosticos(query) {
+        console.log("Término de búsqueda enviado:", query); // Depuración
+        try {
+            const response = await fetch(`/catalogos/diagnosticos?q=${encodeURIComponent(query)}`);
+            console.log("Respuesta de búsqueda:", response); // Depuración
+            if (!response.ok) {
+                throw new Error('Error al buscar diagnósticos');
+            }
+            const diagnosticos = await response.json();
+            console.log("Diagnósticos recibidos:", diagnosticos); // Depuración
+            const selectDiagnosticos = document.getElementById('id_diagnostico_cie10');
+            selectDiagnosticos.innerHTML = '<option value="" disabled selected>Seleccione un diagnóstico</option>'; // Limpiar opciones previas
+
+            diagnosticos.forEach((diagnostico, index) => {
+                const option = document.createElement('option');
+                option.value = diagnostico.id_diagnostico_cie10;
+                option.textContent = `${diagnostico.codigo_diagnostico} - ${diagnostico.nombre}`;
+                selectDiagnosticos.appendChild(option);
+
+                // Seleccionar automáticamente el primer resultado
+                if (index === 0) {
+                    selectDiagnosticos.value = diagnostico.id_diagnostico_cie10;
+                }
+            });
+
+            // Mostrar un mensaje si no se encontraron resultados
+            if (diagnosticos.length === 0) {
+                alert('No se encontraron diagnósticos para la búsqueda.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('No se pudieron cargar los diagnósticos. Intente nuevamente.');
+        }
+    }
+
+    // Llamar a la función al cargar la página
+    document.addEventListener('DOMContentLoaded', cargarMedicos);
+
+    // Evento para buscar diagnósticos mientras el usuario escribe
+    document.getElementById('buscar_diagnostico').addEventListener('input', function () {
+        const query = this.value.trim();
+        if (query.length > 2) { // Buscar solo si hay más de 2 caracteres
+            buscarDiagnosticos(query);
+        }
+    });
+
     document.getElementById('fecha_cirugia').addEventListener('change', function () {
         const fechaLesion = new Date(document.getElementById('fecha_lesion').value);
         const fechaCirugia = new Date(this.value);

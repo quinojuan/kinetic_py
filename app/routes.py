@@ -209,6 +209,57 @@ class CatalogosRoutes:
             if 'connection' in locals() and connection:
                 connection.close()
 
+    @staticmethod
+    @blueprint.route('/catalogos/diagnosticos', methods=['GET'])
+    def listar_catalogos_diagnosticos():
+        try:
+            # Obtener el parámetro de búsqueda
+            query_param = request.args.get('q', '').lower()
+            print("Término de búsqueda recibido:", query_param)  # Depuración
+            if not query_param:
+                return jsonify([])  # Retornar una lista vacía si no hay término de búsqueda
+
+            # Formatear el término de búsqueda con comodines
+            search_term = f"%{query_param}%"
+            print("Término de búsqueda con comodines:", search_term)  # Depuración
+
+            # Conexión a la base de datos
+            connection = pool.connection()
+            print("Conexión al pool establecida correctamente")  # Depuración
+            cursor = connection.cursor()
+
+            # Consulta SQL con placeholders
+            query = """
+                SELECT id_diagnostico_cie10, codigo_diagnostico, nombre
+                FROM diagnosticos_cie10
+                WHERE LOWER(nombre) LIKE %s OR LOWER(codigo_diagnostico) LIKE %s
+                LIMIT 20
+            """
+            print("Consulta SQL:", query)  # Depuración
+            print("Parámetros:", (search_term, search_term))  # Depuración
+
+            # Ejecutar la consulta
+            cursor.execute(query, (search_term, search_term))
+            diagnosticos = cursor.fetchall()
+            print("Resultados de la consulta:", diagnosticos)  # Depuración
+
+            # Manejo de resultados
+            if not diagnosticos:
+                return jsonify({"message": "No se encontraron diagnósticos"}), 404
+
+            # Retornar los resultados
+            return jsonify(diagnosticos)
+        except Exception as e:
+            # Manejo de errores
+            print("Error específico:", type(e).__name__, str(e))  # Depuración
+            return jsonify({"error": str(e)}), 500
+        finally:
+            # Cerrar cursor y conexión
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection:
+                connection.close()
+
 # Clase para las rutas de Órdenes Médicas
 class OrdenesRoutes:
     blueprint = Blueprint('ordenes', __name__)
