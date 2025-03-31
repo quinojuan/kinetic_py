@@ -7,6 +7,25 @@
     <h1>Crear Nueva Orden</h1>
     <form id="crearOrdenForm">
         <div class="form-group">
+            <label for="id_paciente">Paciente</label>
+            <input type="text" class="form-control" id="buscar_paciente" placeholder="Buscar paciente..." autocomplete="off">
+            <select class="form-control mt-2" id="id_paciente" name="id_paciente" required>
+                <option value="" disabled selected>Seleccione un paciente</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="fecha">Fecha</label>
+            <input type="date" class="form-control" id="fecha" name="fecha" value="{{ current_date }}" required>
+        </div>
+        <div class="form-group">
+            <label for="descripcion">Descripción</label>
+            <textarea class="form-control" id="descripcion" name="descripcion" rows="2" placeholder="Descripción de la orden..." required>Orden médica generada</textarea>
+        </div>
+        <div class="form-group">
+            <label for="cantidad_sesiones">Cantidad de Sesiones</label>
+            <input type="number" class="form-control" id="cantidad_sesiones" name="cantidad_sesiones" min="1" required>
+        </div>
+        <div class="form-group">
             <label for="id_medico_solicitante">Médico Solicitante</label>
             <select class="form-control" id="id_medico_solicitante" name="id_medico_solicitante" required>
                 <option value="" disabled selected>Cargando médicos...</option>
@@ -25,10 +44,6 @@
                 <option value="true">Sí</option>
                 <option value="false">No</option>
             </select>
-        </div>
-        <div class="form-group">
-            <label for="cantidad_sesiones">Cantidad de Sesiones</label>
-            <input type="number" class="form-control" id="cantidad_sesiones" name="cantidad_sesiones" min="1" required>
         </div>
         <div class="form-group">
             <label for="fecha_lesion">Fecha de Lesión</label>
@@ -61,10 +76,13 @@
         event.preventDefault(); // Evitar el envío tradicional del formulario
 
         const data = {
+            id_paciente: document.getElementById('id_paciente').value,
+            fecha: document.getElementById('fecha').value,
+            descripcion: document.getElementById('descripcion').value,
+            cantidad_sesiones: parseInt(document.getElementById('cantidad_sesiones').value, 10),
             id_medico_solicitante: document.getElementById('id_medico_solicitante').value,
             id_diagnostico_cie10: document.getElementById('id_diagnostico_cie10').value,
             aplica_obra_social: document.getElementById('aplica_obra_social').value === 'true',
-            cantidad_sesiones: parseInt(document.getElementById('cantidad_sesiones').value, 10),
             fecha_lesion: document.getElementById('fecha_lesion').value,
             fecha_cirugia: document.getElementById('fecha_cirugia').value,
             tipo_de_lesion: document.getElementById('tipo_de_lesion').value,
@@ -151,6 +169,45 @@
         }
     }
 
+    // Función para buscar pacientes dinámicamente
+    async function buscarPacientes(query) {
+        console.log("Término de búsqueda enviado:", query); // Depuración
+        try {
+            const response = await fetch(`/catalogos/pacientes?q=${encodeURIComponent(query)}`);
+            console.log("Respuesta de búsqueda:", response); // Depuración
+
+            if (!response.ok) {
+                throw new Error(`Error al buscar pacientes: ${response.status} ${response.statusText}`);
+            }
+
+            const pacientes = await response.json();
+            console.log("Pacientes recibidos:", pacientes); // Depuración
+
+            const selectPacientes = document.getElementById('id_paciente');
+            selectPacientes.innerHTML = '<option value="" disabled selected>Seleccione un paciente</option>'; // Limpiar opciones previas
+
+            pacientes.forEach((paciente, index) => {
+                const option = document.createElement('option');
+                option.value = paciente.id_paciente; // Asume que cada paciente tiene un campo 'id_paciente'
+                option.textContent = `${paciente.apellido}, ${paciente.nombre}`; // Asume que cada paciente tiene campos 'apellido' y 'nombre'
+                selectPacientes.appendChild(option);
+
+                // Seleccionar automáticamente el primer resultado
+                if (index === 0) {
+                    selectPacientes.value = paciente.id_paciente;
+                }
+            });
+
+            // Mostrar un mensaje si no se encontraron resultados
+            if (pacientes.length === 0) {
+                alert('No se encontraron pacientes para la búsqueda.');
+            }
+        } catch (error) {
+            console.error("Error en buscarPacientes:", error); // Depuración
+            alert('No se pudieron cargar los pacientes. Intente nuevamente.');
+        }
+    }
+
     // Llamar a la función al cargar la página
     document.addEventListener('DOMContentLoaded', cargarMedicos);
 
@@ -159,6 +216,14 @@
         const query = this.value.trim();
         if (query.length > 2) { // Buscar solo si hay más de 2 caracteres
             buscarDiagnosticos(query);
+        }
+    });
+
+    // Evento para buscar pacientes mientras el usuario escribe
+    document.getElementById('buscar_paciente').addEventListener('input', function () {
+        const query = this.value.trim();
+        if (query.length > 2) { // Buscar solo si hay más de 2 caracteres
+            buscarPacientes(query);
         }
     });
 

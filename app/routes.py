@@ -353,6 +353,43 @@ class CatalogosRoutes:
             if 'connection' in locals() and connection:
                 connection.close()
 
+    @staticmethod
+    @blueprint.route('/catalogos/pacientes', methods=['GET'])
+    def listar_catalogos_pacientes():
+        try:
+            # Obtener el parámetro de búsqueda
+            query_param = request.args.get('q', '').lower()
+            if not query_param:
+                return jsonify([])  # Retornar una lista vacía si no hay término de búsqueda
+
+            # Formatear el término de búsqueda con comodines
+            search_term = f"%{query_param}%"
+
+            # Conexión a la base de datos
+            connection = pool.connection()
+            cursor = connection.cursor()
+
+            # Consulta SQL para buscar pacientes por nombre o apellido
+            query = """
+                SELECT id_paciente, nombre, apellido
+                FROM pacientes
+                WHERE LOWER(nombre) LIKE %s OR LOWER(apellido) LIKE %s
+                LIMIT 20
+            """
+            cursor.execute(query, (search_term, search_term))
+            pacientes = cursor.fetchall()
+            print("Resultados de la consulta:", pacientes)  # Depuración
+
+            return jsonify(pacientes)
+        except Exception as e:
+            print("Error en listar_catalogos_pacientes:", str(e))  # Depuración
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection:
+                connection.close()
+
 # Clase para las rutas de Órdenes Médicas
 class OrdenesRoutes:
     blueprint = Blueprint('ordenes', __name__)
@@ -405,33 +442,24 @@ class OrdenesRoutes:
             connection = pool.connection()
             cursor = connection.cursor()
 
-            # Insertar nueva orden con los campos adicionales
+            # Insertar nueva orden
             query = """
                 INSERT INTO ordenes (
-                    paciente_id, fecha, descripcion, cantidad_sesiones, 
+                    id_paciente, fecha, descripcion, cantidad_sesiones, 
                     id_medico_solicitante, id_diagnostico_cie10, aplica_obra_social, 
                     fecha_lesion, fecha_cirugia, tipo_de_lesion, trajo_orden
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             cursor.execute(query, (
-                data['paciente_id'], data['fecha'], data['descripcion'], data['cantidad_sesiones'],
+                data['id_paciente'], data['fecha'], data['descripcion'], data['cantidad_sesiones'],
                 data['id_medico_solicitante'], data['id_diagnostico_cie10'], data['aplica_obra_social'],
                 data['fecha_lesion'], data['fecha_cirugia'], data['tipo_de_lesion'], data['trajo_orden']
             ))
-            orden_id = cursor.fetchone()[0]
 
-            # Generar citas automáticamente si cantidad_sesiones > 0
-            if data['cantidad_sesiones'] > 0:
-                fecha_base = datetime.strptime(data['fecha'], '%Y-%m-%d')
-                for i in range(data['cantidad_sesiones']):
-                    fecha_cita = fecha_base.strftime('%Y-%m-%d')
-                    query_cita = """
-                        INSERT INTO citas (orden_id, fecha, estado)
-                        VALUES (%s, %s, 'pendiente')
-                    """
-                    cursor.execute(query_cita, (orden_id, fecha_cita))
-                    fecha_base += pd.Timedelta(days=7)  # Incrementar por 7 días
+            # Obtener el ID del último registro insertado
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            orden_id = cursor.fetchone()[0]
 
             connection.commit()
             return jsonify({"message": "Orden creada", "orden_id": orden_id})
