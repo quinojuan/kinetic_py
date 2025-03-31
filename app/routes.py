@@ -19,6 +19,12 @@ class PacientesRoutes:
     blueprint = Blueprint('pacientes', __name__)
 
     @staticmethod
+    @blueprint.route('/pacientes/crear', methods=['GET'])
+    def formulario_crear_paciente():
+        # Renderizar el formulario para crear un nuevo paciente
+        return render_template('crear_paciente.html')
+
+    @staticmethod
     @blueprint.route('/pacientes', methods=['GET'])
     def listar_pacientes():
         try:
@@ -46,8 +52,95 @@ class PacientesRoutes:
     @staticmethod
     @blueprint.route('/pacientes', methods=['POST'])
     def crear_paciente():
-        # Lógica para crear un paciente
-        return jsonify({"message": "Paciente creado"})
+        try:
+            # Obtener los datos del paciente desde el cuerpo de la solicitud
+            data = request.json
+            print("DATA DEL FORMULARIO: ", data)  # Depuración
+            required_fields = ['dni', 'nombre', 'apellido']
+            for field in required_fields:
+                if field not in data or not data[field]:
+                    return jsonify({"error": f"El campo '{field}' es obligatorio"}), 400
+
+            # Conexión a la base de datos
+            connection = pool.connection()
+            cursor = connection.cursor()
+
+            # Insertar el nuevo paciente
+            query = """
+                INSERT INTO pacientes (
+                    id_obra_social, dni, nombre, segundo_nombre, apellido, telefono, 
+                    id_localidad, actividad_laboral, fecha_nacimiento
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(query, (
+                data.get('id_obra_social'), data['dni'], data['nombre'], data.get('segundo_nombre'),
+                data['apellido'], data.get('telefono'), data.get('id_localidad'),
+                data.get('actividad_laboral'), data.get('fecha_nacimiento')
+            ))
+            
+            # Obtener el ID del último registro insertado
+            id_paciente = cursor.lastrowid
+            print(id_paciente)  # Depuración
+            connection.commit()
+            return jsonify({"message": "Paciente creado", "id_paciente": id_paciente}), 201
+        except Exception as e:
+            if 'connection' in locals() and connection:
+                connection.rollback()
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection:
+                connection.close()
+
+    @staticmethod
+    @blueprint.route('/pacientes/buscar', methods=['GET'])
+    def buscar_paciente_por_dni():
+        try:
+            # Obtener el parámetro de búsqueda (DNI)
+            dni = request.args.get('dni', '').strip()
+            if not dni:
+                return jsonify({"error": "Debe proporcionar un DNI"}), 400
+
+            # Conexión a la base de datos
+            connection = pool.connection()
+            cursor = connection.cursor()
+
+            # Consulta SQL para buscar el paciente por DNI
+            query = """
+                SELECT id_paciente, id_obra_social, dni, nombre, segundo_nombre, apellido, 
+                       telefono, id_localidad, actividad_laboral, fecha_nacimiento
+                FROM pacientes
+                WHERE dni = %s
+            """
+            cursor.execute(query, (dni,))
+            paciente = cursor.fetchone()
+
+            # Si no se encuentra el paciente, retornar un mensaje
+            if not paciente:
+                return jsonify({"message": "Paciente no encontrado"}), 404
+
+            # Retornar los datos del paciente
+            return jsonify({
+                "id_paciente": paciente[0],
+                "id_obra_social": paciente[1],
+                "dni": paciente[2],
+                "nombre": paciente[3],
+                "segundo_nombre": paciente[4],
+                "apellido": paciente[5],
+                "telefono": paciente[6],
+                "id_localidad": paciente[7],
+                "actividad_laboral": paciente[8],
+                "fecha_nacimiento": paciente[9]
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection:
+                connection.close()
 
 # Clase para las rutas de Médicas
 class MedicasRoutes:
@@ -81,7 +174,7 @@ class TratamientosDiagnosticosRoutes:
 
     @staticmethod
     @blueprint.route('/diagnosticos', methods=['GET'])
-    def listar_diagnosticos():
+    def listar_diagnostioos():
         # Lógica para listar diagnósticos
         return jsonify({"message": "Lista de diagnósticos"})
 
@@ -302,17 +395,30 @@ class OrdenesRoutes:
     @staticmethod
     @blueprint.route('/ordenes', methods=['POST'])
     def crear_orden():
+        connection = None  # Inicializar la variable connection
+        cursor = None  # Inicializar la variable cursor
         try:
             data = request.json
+            print("DATA DEL FORMULARIO: ", data)  # Depuración
+
+            # Obtener una conexión del pool
             connection = pool.connection()
             cursor = connection.cursor()
 
-            # Insertar nueva orden
+            # Insertar nueva orden con los campos adicionales
             query = """
-                INSERT INTO ordenes (paciente_id, fecha, descripcion, cantidad_sesiones)
-                VALUES (%s, %s, %s, %s) RETURNING id
+                INSERT INTO ordenes (
+                    paciente_id, fecha, descripcion, cantidad_sesiones, 
+                    id_medico_solicitante, id_diagnostico_cie10, aplica_obra_social, 
+                    fecha_lesion, fecha_cirugia, tipo_de_lesion, trajo_orden
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """
-            cursor.execute(query, (data['paciente_id'], data['fecha'], data['descripcion'], data['cantidad_sesiones']))
+            cursor.execute(query, (
+                data['paciente_id'], data['fecha'], data['descripcion'], data['cantidad_sesiones'],
+                data['id_medico_solicitante'], data['id_diagnostico_cie10'], data['aplica_obra_social'],
+                data['fecha_lesion'], data['fecha_cirugia'], data['tipo_de_lesion'], data['trajo_orden']
+            ))
             orden_id = cursor.fetchone()[0]
 
             # Generar citas automáticamente si cantidad_sesiones > 0
@@ -330,12 +436,15 @@ class OrdenesRoutes:
             connection.commit()
             return jsonify({"message": "Orden creada", "orden_id": orden_id})
         except Exception as e:
-            connection.rollback()
+            if connection:
+                connection.rollback()  # Revertir cambios si ocurre un error
+            print("Error en crear_orden:", str(e))  # Depuración
             return jsonify({"error": str(e)}), 500
         finally:
-            if 'cursor' in locals() and cursor:
+            # Cerrar cursor y conexión si existen
+            if cursor:
                 cursor.close()
-            if 'connection' in locals() and connection:
+            if connection:
                 connection.close()
 
     @staticmethod

@@ -5,7 +5,7 @@
 {% block body %}
 <div class="container mt-5">
     <h1>Crear Nueva Orden</h1>
-    <form method="POST" action="/ordenes">
+    <form id="crearOrdenForm">
         <div class="form-group">
             <label for="id_medico_solicitante">Médico Solicitante</label>
             <select class="form-control" id="id_medico_solicitante" name="id_medico_solicitante" required>
@@ -57,6 +57,41 @@
 </div>
 
 <script>
+    document.getElementById('crearOrdenForm').addEventListener('submit', async function (event) {
+        event.preventDefault(); // Evitar el envío tradicional del formulario
+
+        const data = {
+            id_medico_solicitante: document.getElementById('id_medico_solicitante').value,
+            id_diagnostico_cie10: document.getElementById('id_diagnostico_cie10').value,
+            aplica_obra_social: document.getElementById('aplica_obra_social').value === 'true',
+            cantidad_sesiones: parseInt(document.getElementById('cantidad_sesiones').value, 10),
+            fecha_lesion: document.getElementById('fecha_lesion').value,
+            fecha_cirugia: document.getElementById('fecha_cirugia').value,
+            tipo_de_lesion: document.getElementById('tipo_de_lesion').value,
+            trajo_orden: document.getElementById('trajo_orden').value === 'true'
+        };
+
+        try {
+            const response = await fetch('/ordenes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error('Error al crear la orden');
+            }
+
+            const result = await response.json();
+            alert(`Orden creada con éxito. ID: ${result.orden_id}`);
+        } catch (error) {
+            console.error(error);
+            alert('Ocurrió un error al crear la orden. Intente nuevamente.');
+        }
+    });
+
     // Función para cargar médicos en el select
     async function cargarMedicos() {
         try {
@@ -70,7 +105,7 @@
 
             medicos.forEach(medico => {
                 const option = document.createElement('option');
-                option.value = medico.id; // Asume que cada médico tiene un campo 'id'
+                option.value = medico.id_medico; // Asume que cada médico tiene un campo 'id'
                 option.textContent = `${medico.apellido} ${medico.nombre}`; // Asume que cada médico tiene un campo 'nombre'
                 selectMedicos.appendChild(option);
             });
