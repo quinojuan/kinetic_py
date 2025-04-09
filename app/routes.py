@@ -438,6 +438,17 @@ class OrdenesRoutes:
             data = request.json
             print("DATA DEL FORMULARIO: ", data)  # Depuración
 
+            # Validar y convertir tipos de datos
+            data['id_paciente'] = int(data['id_paciente'])
+            data['id_medico_solicitante'] = int(data['id_medico_solicitante'])
+            data['id_diagnostico_cie10'] = int(data['id_diagnostico_cie10'])
+            data['cantidad_sesiones'] = int(data['cantidad_sesiones'])
+
+            # Validar formato de fechas
+            for date_field in ['fecha', 'fecha_lesion', 'fecha_cirugia']:
+                if date_field in data and data[date_field]:
+                    datetime.strptime(data[date_field], '%Y-%m-%d')  # Validar formato de fecha
+
             # Obtener una conexión del pool
             connection = pool.connection()
             cursor = connection.cursor()
@@ -451,6 +462,13 @@ class OrdenesRoutes:
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
+            print("Consulta SQL:", query)  # Depuración
+            print("Parámetros:", (
+                data['id_paciente'], data['fecha'], data['descripcion'], data['cantidad_sesiones'],
+                data['id_medico_solicitante'], data['id_diagnostico_cie10'], data['aplica_obra_social'],
+                data['fecha_lesion'], data['fecha_cirugia'], data['tipo_de_lesion'], data['trajo_orden']
+            ))  # Depuración
+
             cursor.execute(query, (
                 data['id_paciente'], data['fecha'], data['descripcion'], data['cantidad_sesiones'],
                 data['id_medico_solicitante'], data['id_diagnostico_cie10'], data['aplica_obra_social'],
@@ -459,14 +477,20 @@ class OrdenesRoutes:
 
             # Obtener el ID del último registro insertado
             cursor.execute("SELECT LAST_INSERT_ID()")
-            orden_id = cursor.fetchone()[0]
+            last_insert_result = cursor.fetchone()
+            print("Resultado de LAST_INSERT_ID():", last_insert_result)  # Depuración
+
+            if last_insert_result and 'LAST_INSERT_ID()' in last_insert_result:
+                orden_id = last_insert_result['LAST_INSERT_ID()']
+            else:
+                raise Exception("No se pudo obtener el ID del último registro insertado")
 
             connection.commit()
             return jsonify({"message": "Orden creada", "orden_id": orden_id})
         except Exception as e:
             if connection:
                 connection.rollback()  # Revertir cambios si ocurre un error
-            print("Error en crear_orden:", str(e))  # Depuración
+            print("Error en crear_orden:", type(e).__name__, str(e))  # Depuración
             return jsonify({"error": str(e)}), 500
         finally:
             # Cerrar cursor y conexión si existen

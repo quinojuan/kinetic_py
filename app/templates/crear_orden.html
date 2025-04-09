@@ -104,6 +104,7 @@
 
             const result = await response.json();
             alert(`Orden creada con éxito. ID: ${result.orden_id}`);
+            document.getElementById('crearOrdenForm').reset(); // Blanquear el formulario
         } catch (error) {
             console.error(error);
             alert('Ocurrió un error al crear la orden. Intente nuevamente.');
